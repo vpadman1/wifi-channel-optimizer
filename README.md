@@ -50,6 +50,21 @@ List available devices: `uv run python main.py --list-devices`
 
 Use a specific device: `uv run python main.py --device tplink_archer_c20_v5`
 
+## Friendly Client Names
+
+Tag connected devices with human-readable names so the dashboard shows "Vignesh's iPhone" instead of `AA:BB:CC:DD:EE:FF`. Aliases are stored in `~/.config/wifi-channel-optimizer/aliases.json`.
+
+```bash
+# Tag a device
+uv run python main.py alias set AA:BB:CC:DD:EE:FF "Vignesh's iPhone"
+
+# List all aliases
+uv run python main.py alias list
+
+# Remove an alias
+uv run python main.py alias remove AA:BB:CC:DD:EE:FF
+```
+
 ## Adding Support for Your Router
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a new device config or driver.

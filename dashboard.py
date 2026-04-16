@@ -11,6 +11,7 @@ from wifi_scanner import (
     BAND_2G, BAND_5G, CHANNELS_2G_ALL, CHANNELS_5G,
     count_networks_per_channel,
 )
+from aliases import load_aliases, resolve
 
 
 BAND_FIELDS = [
@@ -60,13 +61,17 @@ class ClientsPanel(Static):
 
     clients_data: reactive[list] = reactive([])
 
+    def __init__(self, *args, aliases: dict[str, str] | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._aliases = aliases or {}
+
     def compose(self) -> ComposeResult:
         yield Label("[bold]Connected Clients[/bold]", id="clients-title")
         yield DataTable(id="clients-table", cursor_type="none")
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns("MAC Address", "Network", "Band", "TX Packets", "RX Packets")
+        table.add_columns("Device", "MAC Address", "Network", "Band", "TX Packets", "RX Packets")
 
     def watch_clients_data(self, old_clients: list, clients: list) -> None:
         if clients == old_clients:
@@ -74,11 +79,14 @@ class ClientsPanel(Static):
         table = self.query_one(DataTable)
         table.clear()
         if not clients:
-            table.add_row("No clients connected", "—", "—", "—", "—")
+            table.add_row("No clients connected", "—", "—", "—", "—", "—")
             return
         for c in clients:
+            mac = c.get("mac", c.get("AssociatedDeviceMACAddress", "—"))
+            device = resolve(mac, self._aliases) if mac != "—" else "—"
             table.add_row(
-                c.get("mac", c.get("AssociatedDeviceMACAddress", "—")),
+                device,
+                mac,
                 c.get("network", c.get("X_TP_HostName", "—")),
                 c.get("band", "—"),
                 str(c.get("X_TP_TotalPacketsSent", "—")),
@@ -206,19 +214,22 @@ class WifiDashboard(App):
         ("c", "apply_recommendation", "Apply best channel"),
     ]
 
-    def __init__(self, client: BaseDriver, interval: int = 5, **kwargs):
+    def __init__(self, client: BaseDriver, interval: int = 5,
+                 aliases: dict[str, str] | None = None, **kwargs):
         super().__init__(**kwargs)
         self._client = client
         self._interval = interval
         self._last_scan: dict | None = None
+        self._aliases_override = aliases
 
     def compose(self) -> ComposeResult:
+        aliases = self._aliases_override if self._aliases_override is not None else load_aliases()
         yield Header(show_clock=True)
         yield Horizontal(
             BandPanel("2.4 GHz", id="panel-2g"),
             BandPanel("5 GHz", id="panel-5g"),
         )
-        yield ClientsPanel(id="panel-clients")
+        yield ClientsPanel(id="panel-clients", aliases=aliases)
         yield ChannelChartPanel(id="panel-channels")
         yield StatusBar(id="status-bar")
         yield Footer()
