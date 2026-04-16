@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from wifi_scanner import scan_networks, ScanResult, recommend_channel
+from wifi_scanner import scan_networks, ScanResult, recommend_channel, score_channels
 
 
 class TestScanNetworks:
@@ -77,3 +77,34 @@ class TestRecommendChannel:
         ]
         rec = recommend_channel(networks, band="2.4GHz", current_channel=6)
         assert rec.channel == 6
+
+    def test_strong_signal_outweighs_many_weak_signals(self):
+        """A single very strong nearby network beats several weak ones."""
+        # Five weak networks on ch6, one very strong on ch1.
+        networks = [ScanResult(ssid="strong", channel=1, rssi=-40, channel_width=1)]
+        networks += [
+            ScanResult(ssid=f"weak{i}", channel=6, rssi=-80, channel_width=1)
+            for i in range(5)
+        ]
+        rec = recommend_channel(networks, band="2.4GHz", current_channel=1)
+        # ch11 is far from both and should win despite ch6 having more networks.
+        assert rec.channel == 11
+
+    def test_adjacent_channel_spill_2ghz(self):
+        """On 2.4 GHz, a network on ch4 still penalises ch1 and ch6 (±3, ±2)."""
+        networks = [ScanResult(ssid="mid", channel=4, rssi=-50, channel_width=1)]
+        rec = recommend_channel(networks, band="2.4GHz", current_channel=1)
+        # ch11 is 7 away from ch4 → zero overlap → should be chosen.
+        assert rec.channel == 11
+
+    def test_5ghz_no_overlap_penalty(self):
+        """On 5 GHz, a network on ch40 should NOT penalise ch36 or ch44."""
+        networks = [ScanResult(ssid="a", channel=40, rssi=-50, channel_width=3)]
+        scores = score_channels(networks, [36, 40, 44], band="5GHz")
+        assert scores[36] == 0.0
+        assert scores[44] == 0.0
+        assert scores[40] > 0.0
+
+    def test_score_channels_empty(self):
+        scores = score_channels([], [1, 6, 11], band="2.4GHz")
+        assert scores == {1: 0.0, 6: 0.0, 11: 0.0}
