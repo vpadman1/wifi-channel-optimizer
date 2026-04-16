@@ -1,4 +1,5 @@
 import pytest
+import requests
 from unittest.mock import MagicMock, patch
 from requests.cookies import RequestsCookieJar
 from router_client import RouterClient
@@ -291,3 +292,56 @@ class TestRouterClientSetChannel:
         client = RouterClient(host="192.168.0.1", password="testpass")
         with pytest.raises(RuntimeError, match="Not authenticated"):
             client.set_channel("1,1,0,0,0,0", 6)
+
+
+def _mock_response(status_code: int, text: str = "", http_error: bool = False) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.text = text
+    resp.ok = 200 <= status_code < 300
+    resp.headers = {"content-type": "text/html" if "<html" in text else "text/plain"}
+    if http_error:
+        resp.raise_for_status.side_effect = requests.HTTPError(str(status_code))
+    return resp
+
+
+SUCCESS_BODY = "[1,1,0,0,0,0]0\nSSID=OK\n[error]0\n"
+
+
+class TestAutoRelogin:
+    def _patch_relogin(self, client):
+        def fake_login():
+            client._token = "new-token"
+            return "new-session"
+        return patch.object(client, "login", side_effect=fake_login)
+
+    def test_401_triggers_relogin_and_retries(self):
+        client = _make_authed_client()
+        responses = [_mock_response(401), _mock_response(200, SUCCESS_BODY)]
+        with self._patch_relogin(client) as mock_login:
+            with patch.object(client._session, "post", side_effect=responses) as mock_post:
+                result = client.get_wireless_config()
+        assert mock_login.called
+        assert mock_post.call_count == 2
+        assert result[0]["SSID"] == "OK"
+
+    def test_login_page_response_triggers_relogin(self):
+        """Some TP-Link models return 200 + login HTML instead of 401."""
+        client = _make_authed_client()
+        login_page = _mock_response(200, "<html><body>Please login.htm to continue</body></html>")
+        responses = [login_page, _mock_response(200, SUCCESS_BODY)]
+        with self._patch_relogin(client) as mock_login:
+            with patch.object(client._session, "post", side_effect=responses):
+                result = client.get_wireless_config()
+        mock_login.assert_called_once()
+        assert result[0]["SSID"] == "OK"
+
+    def test_second_failure_does_not_loop(self):
+        """If the retry also fails with 401, we must NOT loop."""
+        client = _make_authed_client()
+        expired = _mock_response(401, http_error=True)
+        with self._patch_relogin(client) as mock_login:
+            with patch.object(client._session, "post", side_effect=[expired, expired]):
+                with pytest.raises(Exception):
+                    client.get_wireless_config()
+        mock_login.assert_called_once()
