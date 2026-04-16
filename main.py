@@ -39,7 +39,7 @@ def main(device: str, host: str | None, password: str | None,
         sys.exit(1)
 
     try:
-        client = load_driver(device, host=host, password=password, username=username or "admin")
+        client = load_driver(device, host=host, password=password, username=username)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

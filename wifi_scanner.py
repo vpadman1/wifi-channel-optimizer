@@ -72,6 +72,8 @@ def recommend_channel(
     channels = CHANNELS_2G if band == BAND_2G else CHANNELS_5G
     counts = count_networks_per_channel(networks, channels)
     current_count = counts.get(current_channel, 0)
+    # Tiebreaker: prefer staying on current channel (False sorts before True)
+    # to avoid disrupting clients when no better option exists.
     best_ch = min(channels, key=lambda ch: (counts[ch], ch != current_channel))
     return ChannelRecommendation(
         channel=best_ch,

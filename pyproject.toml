@@ -12,7 +12,7 @@ dependencies = [
     "rich>=13.7.0",
     "click>=8.1.7",
     "keyring>=25.0.0",
-    "pyobjc-framework-corewlan>=12.1",
+    "pyobjc-framework-corewlan>=12.1; sys_platform == 'darwin'",
     "textual-plotext>=1.0.1",
     "pyyaml>=6.0",
 ]

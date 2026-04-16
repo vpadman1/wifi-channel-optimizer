@@ -2,6 +2,8 @@
 
 A terminal dashboard that monitors your WiFi router, scans for channel congestion, recommends the best channels, and can switch them — all from the command line.
 
+![WiFi Channel Optimizer dashboard](docs/screenshot.png)
+
 ## Features
 
 - **Live monitoring** — see your 2.4GHz and 5GHz band config, connected clients
@@ -51,6 +53,10 @@ Use a specific device: `uv run python main.py --device tplink_archer_c20_v5`
 ## Adding Support for Your Router
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a new device config or driver.
+
+## Security Notes
+
+This tool communicates with the router over plain HTTP because the TP-Link web UI doesn't support HTTPS. Passwords are RSA-encrypted before transmission, but the session token and subsequent requests are sent in cleartext. Only run this on a LAN you trust.
 
 ## License
 
