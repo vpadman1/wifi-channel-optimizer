@@ -1,0 +1,12 @@
+name: TP-Link Archer C20 v5
+driver: tplink_oid
+default_host: 192.168.0.1
+default_username: admin
+description: >
+  AC750 Wireless Dual Band Router.
+  Uses OID-based CGI protocol with RSA auth.
+compatible_models:
+  - Archer C20 v5
+  - Archer C50 v4
+  - Archer C60 v2
+  - Archer A5 v4

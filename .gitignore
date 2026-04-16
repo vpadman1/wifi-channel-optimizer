@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Dev artifacts
+probe_*.py
+
+# Claude Code
+.claude/
+
+# Environment
+.env
