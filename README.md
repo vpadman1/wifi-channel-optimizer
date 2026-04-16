@@ -69,6 +69,14 @@ uv run python main.py alias remove AA:BB:CC:DD:EE:FF
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a new device config or driver.
 
+## Debugging
+
+Run with `-v` / `--verbose` to see INFO-level logs on the console. Full DEBUG logs are always written to `~/.config/wifi-channel-optimizer/wifi-monitor.log` (rotated at 1 MB, 3 generations kept).
+
+```bash
+uv run python main.py --verbose
+```
+
 ## Security Notes
 
 This tool communicates with the router over plain HTTP because the TP-Link web UI doesn't support HTTPS. Passwords are RSA-encrypted before transmission, but the session token and subsequent requests are sent in cleartext. Only run this on a LAN you trust.

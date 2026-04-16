@@ -5,6 +5,7 @@ from devices import load_driver, list_devices
 from dashboard import WifiDashboard
 from get_password import KEYRING_SERVICE, KEYRING_USERNAME
 from aliases import load_aliases, set_alias, remove_alias, ALIASES_FILE
+from logging_config import configure_logging, logger
 
 
 def get_password_from_keyring() -> str | None:
@@ -20,13 +21,15 @@ def get_password_from_keyring() -> str | None:
 @click.option("--username", default=None, help="Router admin username (overrides device default).")
 @click.option("--interval", default=5, show_default=True, type=int, help="Polling interval in seconds.")
 @click.option("--list-devices", "show_devices", is_flag=True, help="List available device configs and exit.")
+@click.option("--verbose", "-v", is_flag=True, help="Enable INFO-level console logging (DEBUG always goes to log file).")
 @click.pass_context
 def main(ctx: click.Context, device: str, host: str | None, password: str | None,
-         username: str | None, interval: int, show_devices: bool) -> None:
+         username: str | None, interval: int, show_devices: bool, verbose: bool) -> None:
     """WiFi Channel Optimizer — terminal dashboard for WiFi monitoring and optimization."""
     if ctx.invoked_subcommand is not None:
         return
 
+    configure_logging(verbose=verbose)
     if show_devices:
         for d in list_devices():
             click.echo(f"  {d['_file']:30s} {d['name']}")
@@ -46,6 +49,7 @@ def main(ctx: click.Context, device: str, host: str | None, password: str | None
     try:
         client = load_driver(device, host=host, password=password, username=username)
     except ValueError as e:
+        logger.error(f"Device load failed: {e}")
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -53,6 +57,7 @@ def main(ctx: click.Context, device: str, host: str | None, password: str | None
     try:
         client.login()
     except Exception as e:
+        logger.error(f"Authentication failed: {e}")
         click.echo(f"Error: could not authenticate — {e}", err=True)
         sys.exit(1)
 
@@ -64,6 +69,7 @@ def main(ctx: click.Context, device: str, host: str | None, password: str | None
         try:
             client.logout()
         except Exception as e:
+            logger.warning(f"Logout failed: {e}")
             click.echo(f"Warning: logout failed — {e}", err=True)
 
 

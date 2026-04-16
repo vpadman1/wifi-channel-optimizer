@@ -4,6 +4,7 @@ import binascii
 import requests
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
+from logging_config import logger
 from drivers.base import BaseDriver
 from wifi_scanner import BAND_2G, BAND_5G
 
@@ -35,6 +36,7 @@ class TplinkOidDriver(BaseDriver):
         return binascii.hexlify(encrypted).decode("utf-8")
 
     def login(self) -> str:
+        logger.info(f"Logging in to router at {self.host} as user '{self.username}'")
         r = self._session.post(f"{self._base_url}/cgi/getParm")
         r.raise_for_status()
         nn_match = re.search(r'var nn="([0-9a-fA-F]+)"', r.text)
@@ -59,6 +61,7 @@ class TplinkOidDriver(BaseDriver):
                 f"Login failed — no JSESSIONID cookie in response. Body: {r.text[:200]}"
             )
         self._token = self._fetch_token()
+        logger.info("Login successful, token acquired")
         return jsessionid
 
     def _fetch_token(self) -> str:
@@ -72,8 +75,8 @@ class TplinkOidDriver(BaseDriver):
     def logout(self) -> None:
         try:
             self._session.post(f"{self._base_url}/cgi/logout")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Logout request failed (ignored): {e}")
         self._session.cookies.clear()
         self._token = None
 
@@ -185,6 +188,7 @@ class TplinkOidDriver(BaseDriver):
         return clients
 
     def set_channel(self, band_stack: str, channel: int) -> None:
+        logger.info(f"Setting channel: band_stack={band_stack} channel={channel}")
         body = (
             f"[LAN_WLAN#{band_stack}#0,0,0,0,0,0]0,2\r\n"
             f"AutoChannelEnable=0\r\nChannel={channel}\r\n"
