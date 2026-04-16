@@ -77,17 +77,44 @@ class TplinkOidDriver(BaseDriver):
         self._session.cookies.clear()
         self._token = None
 
+    # HTTP statuses that indicate the session cookie/token is no longer valid.
+    _AUTH_FAIL_STATUSES = (401, 403)
+
+    @staticmethod
+    def _looks_like_session_expiry(response: requests.Response) -> bool:
+        """True when the router is telling us our session is gone.
+
+        The TP-Link CGI sometimes returns a 200 with an HTML redirect to the
+        login page instead of a proper 401. We catch both shapes.
+        """
+        if response.status_code in TplinkOidDriver._AUTH_FAIL_STATUSES:
+            return True
+        # Skip the body sniff on clearly-successful non-HTML responses.
+        content_type = response.headers.get("content-type", "")
+        if response.ok and "html" not in content_type.lower():
+            return False
+        body = response.text[:500].lower()
+        return "login" in body and ("jsp" in body or "htm" in body)
+
     def _cgi_post(self, action_types: str, body: str) -> str:
         if not self._token:
             raise RuntimeError("Not authenticated — call login() first")
         url = f"{self._base_url}/cgi?{action_types}"
-        r = self._session.post(
-            url,
-            data=body.encode("utf-8"),
-            headers={"TokenID": self._token, "Content-Type": "text/plain"},
-        )
-        r.raise_for_status()
-        return r.text
+        for attempt in range(2):
+            r = self._session.post(
+                url,
+                data=body.encode("utf-8"),
+                headers={"TokenID": self._token, "Content-Type": "text/plain"},
+            )
+            if attempt == 0 and self._looks_like_session_expiry(r):
+                self._token = None
+                self._session.cookies.clear()
+                self.login()
+                continue
+            r.raise_for_status()
+            return r.text
+        # Unreachable: loop either returns or raises.
+        raise RuntimeError("CGI retry loop exited unexpectedly")
 
     @staticmethod
     def _parse_oid_response(text: str) -> list[dict]:
