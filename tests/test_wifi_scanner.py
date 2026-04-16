@@ -67,3 +67,13 @@ class TestRecommendChannel:
         rec = recommend_channel([], band="2.4GHz", current_channel=6)
         assert rec.channel == 6
         assert rec.network_count == 0
+
+    def test_tiebreaker_prefers_current_channel(self):
+        """When multiple channels have equal congestion, stay on current."""
+        networks = [
+            ScanResult(ssid="A", channel=1, rssi=-50, channel_width=1),
+            ScanResult(ssid="B", channel=6, rssi=-55, channel_width=1),
+            ScanResult(ssid="C", channel=11, rssi=-60, channel_width=1),
+        ]
+        rec = recommend_channel(networks, band="2.4GHz", current_channel=6)
+        assert rec.channel == 6

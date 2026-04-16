@@ -17,7 +17,7 @@ def list_devices() -> list[dict]:
     return devices
 
 
-def load_driver(device_name: str, host: str, password: str, username: str = "admin"):
+def load_driver(device_name: str, host: str | None, password: str, username: str | None = None):
     config_path = DEVICES_DIR / f"{device_name}.yaml"
     if not config_path.exists():
         raise ValueError(f"Unknown device: {device_name}. Available: {[d['_file'] for d in list_devices()]}")
