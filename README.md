@@ -12,12 +12,23 @@ A terminal dashboard that monitors your WiFi router, scans for channel congestio
 - **One-click channel switch** — apply the recommended channel directly from the dashboard
 - **Device configs** — YAML-based device profiles make it easy to add support for new routers
 
-## Quick Start
+## Try it in 30 seconds (no router needed)
+
+```bash
+git clone https://github.com/vpadman1/wifi-channel-optimizer.git
+cd wifi-channel-optimizer
+uv run python main.py --demo
+```
+
+`--demo` runs the dashboard against hardcoded fake router data so you can see how it looks and feels before pointing it at real hardware. Press `S` to scan, `C` to apply the recommended channel, `Q` to quit.
+
+![Applying the recommended channel](docs/screenshot-apply.png)
+
+## Quick Start (against your real router)
 
 Requires Python 3.12+ and [uv](https://github.com/astral-sh/uv).
 
 ```bash
-# Clone
 git clone https://github.com/vpadman1/wifi-channel-optimizer.git
 cd wifi-channel-optimizer
 

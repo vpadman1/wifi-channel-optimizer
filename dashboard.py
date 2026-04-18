@@ -215,12 +215,16 @@ class WifiDashboard(App):
     ]
 
     def __init__(self, client: BaseDriver, interval: int = 5,
-                 aliases: dict[str, str] | None = None, **kwargs):
+                 aliases: dict[str, str] | None = None,
+                 scan_fn=None, **kwargs):
         super().__init__(**kwargs)
         self._client = client
         self._interval = interval
         self._last_scan: dict | None = None
         self._aliases_override = aliases
+        # Injectable WiFi scanner so --demo can swap in canned data instead
+        # of calling CoreWLAN. None → use the real scanner at run time.
+        self._scan_fn = scan_fn
 
     def compose(self) -> ComposeResult:
         aliases = self._aliases_override if self._aliases_override is not None else load_aliases()
@@ -265,8 +269,9 @@ class WifiDashboard(App):
     @work(thread=True)
     def run_scan(self) -> None:
         from wifi_scanner import scan_networks, recommend_channel
+        scan = self._scan_fn or scan_networks
         try:
-            networks = scan_networks()
+            networks = scan()
             panel_2g = self.query_one("#panel-2g", BandPanel)
             panel_5g = self.query_one("#panel-5g", BandPanel)
             current_2g = int(panel_2g.band_data.get("channel", 0) or 0)

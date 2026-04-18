@@ -22,9 +22,11 @@ def get_password_from_keyring() -> str | None:
 @click.option("--interval", default=5, show_default=True, type=int, help="Polling interval in seconds.")
 @click.option("--list-devices", "show_devices", is_flag=True, help="List available device configs and exit.")
 @click.option("--verbose", "-v", is_flag=True, help="Enable INFO-level console logging (DEBUG always goes to log file).")
+@click.option("--demo", is_flag=True, help="Run with fake router data — no router needed. Great for screenshots and trying the tool before connecting real hardware.")
 @click.pass_context
 def main(ctx: click.Context, device: str, host: str | None, password: str | None,
-         username: str | None, interval: int, show_devices: bool, verbose: bool) -> None:
+         username: str | None, interval: int, show_devices: bool, verbose: bool,
+         demo: bool) -> None:
     """WiFi Channel Optimizer — terminal dashboard for WiFi monitoring and optimization."""
     if ctx.invoked_subcommand is not None:
         return
@@ -37,6 +39,19 @@ def main(ctx: click.Context, device: str, host: str | None, password: str | None
                 click.echo(f"    Compatible: {', '.join(d['compatible_models'])}")
         return
 
+    if demo:
+        from drivers.demo import DemoDriver
+        from wifi_scanner import demo_scan_networks
+        click.echo("Starting in DEMO mode — using fake router data. No router needed.")
+        client = DemoDriver()
+        client.login()
+        app = WifiDashboard(client=client, interval=interval, scan_fn=demo_scan_networks)
+        try:
+            app.run()
+        finally:
+            client.logout()
+        return
+
     if not password:
         password = get_password_from_keyring()
     if not password:
@@ -44,6 +59,7 @@ def main(ctx: click.Context, device: str, host: str | None, password: str | None
         click.echo("  1. Store in keyring: uv run python -m keyring set wifi-monitor router_admin", err=True)
         click.echo("  2. Pass --password flag", err=True)
         click.echo("  3. Set ROUTER_PASSWORD env var", err=True)
+        click.echo("  4. Try --demo to see the dashboard with fake data first", err=True)
         sys.exit(1)
 
     try:

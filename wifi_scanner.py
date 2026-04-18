@@ -56,6 +56,24 @@ CHANNELS_5G = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112,
                116, 120, 124, 128, 132, 136, 140, 149, 153, 157, 161, 165]
 
 
+def demo_scan_networks() -> list[ScanResult]:
+    """Fake scan data for --demo mode. Crafted so the recommender has a
+    clear winner on each band: ch 1 is heavily contended, ch 11 is clean,
+    ch 44 has a strong neighbor, ch 149 is clean on 5 GHz."""
+    return [
+        ScanResult(ssid="MyHomeWiFi", channel=6, rssi=-42, channel_width=2),
+        ScanResult(ssid="MyHomeWiFi-5G", channel=44, rssi=-48, channel_width=3),
+        ScanResult(ssid="NETGEAR_07", channel=1, rssi=-58, channel_width=1),
+        ScanResult(ssid="LinksysSetup", channel=6, rssi=-68, channel_width=1),
+        ScanResult(ssid="ATT-WIFI-4821", channel=1, rssi=-62, channel_width=1),
+        ScanResult(ssid="xfinitywifi", channel=1, rssi=-75, channel_width=1),
+        ScanResult(ssid="CoffeeShop-Guest", channel=11, rssi=-82, channel_width=1),
+        ScanResult(ssid="Upstairs-5G", channel=44, rssi=-55, channel_width=3),
+        ScanResult(ssid="Neighbor-5G", channel=48, rssi=-70, channel_width=3),
+        ScanResult(ssid="Guest-Network", channel=36, rssi=-72, channel_width=3),
+    ]
+
+
 def count_networks_per_channel(networks: list[ScanResult], channels: list[int]) -> dict[int, int]:
     """Raw count of networks whose primary channel matches each target channel.
 
