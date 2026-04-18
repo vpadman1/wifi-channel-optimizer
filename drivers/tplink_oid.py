@@ -1,6 +1,7 @@
 import re
 import base64
 import binascii
+import threading
 import requests
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
@@ -20,8 +21,11 @@ class TplinkOidDriver(BaseDriver):
     def __init__(self, host: str, password: str, username: str = "admin"):
         super().__init__(host, password, username)
         self._session = requests.Session()
-        self._session.headers.update({"Referer": f"http://{host}/"})
+        self._session.headers.update({"Referer": f"http://{self.host}/"})
         self._token: str | None = None
+        # Serializes re-authentication when multiple workers race on an
+        # expired session; see _cgi_post.
+        self._auth_lock = threading.Lock()
 
     @property
     def _base_url(self) -> str:
@@ -104,15 +108,24 @@ class TplinkOidDriver(BaseDriver):
             raise RuntimeError("Not authenticated — call login() first")
         url = f"{self._base_url}/cgi?{action_types}"
         for attempt in range(2):
+            pre_token = self._token
             r = self._session.post(
                 url,
                 data=body.encode("utf-8"),
                 headers={"TokenID": self._token, "Content-Type": "text/plain"},
             )
             if attempt == 0 and self._looks_like_session_expiry(r):
-                self._token = None
-                self._session.cookies.clear()
-                self.login()
+                # Serialize re-auth so concurrent workers don't all call
+                # login(). If another thread already re-authed while we were
+                # waiting on the lock, skip login and just retry. We do NOT
+                # clear self._token before login() — doing so would make
+                # concurrent _cgi_post calls trip the "Not authenticated"
+                # guard during the re-auth window; login() overwrites the
+                # token atomically on success.
+                with self._auth_lock:
+                    if self._token == pre_token:
+                        self._session.cookies.clear()
+                        self.login()
                 continue
             r.raise_for_status()
             return r.text

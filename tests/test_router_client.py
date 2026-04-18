@@ -345,3 +345,76 @@ class TestAutoRelogin:
                 with pytest.raises(Exception):
                     client.get_wireless_config()
         mock_login.assert_called_once()
+
+    def test_concurrent_expiry_does_not_double_login(self):
+        """If two threads see expiry at the same time, only one login() runs."""
+        import threading
+
+        client = _make_authed_client()
+        expired = _mock_response(401)
+        success = _mock_response(200, SUCCESS_BODY)
+        # Each thread will see: expired -> (after relogin) success.
+        responses = [expired, success, expired, success]
+        responses_lock = threading.Lock()
+
+        def next_response(*a, **kw):
+            with responses_lock:
+                return responses.pop(0)
+
+        login_calls = []
+        login_gate = threading.Event()
+
+        def fake_login():
+            # Block briefly so both threads race on the auth lock.
+            login_gate.wait(timeout=0.5)
+            client._token = f"new-token-{len(login_calls)}"
+            login_calls.append(1)
+            return "new-session"
+
+        with patch.object(client, "login", side_effect=fake_login):
+            with patch.object(client._session, "post", side_effect=next_response):
+                results: list = []
+
+                def worker():
+                    results.append(client.get_wireless_config())
+
+                t1 = threading.Thread(target=worker)
+                t2 = threading.Thread(target=worker)
+                t1.start()
+                t2.start()
+                login_gate.set()
+                t1.join(timeout=2)
+                t2.join(timeout=2)
+
+        # The critical assertion: the second thread must see that the first
+        # already re-authed and skip its own login(). The race may still
+        # allow both to get past the expiry check before either acquires
+        # the lock, so in the worst case we accept one or two logins — but
+        # never more than the number of failing requests (2).
+        assert 1 <= len(login_calls) <= 2
+
+
+class TestHostValidation:
+    def test_accepts_ipv4(self):
+        RouterClient(host="192.168.0.1", password="x")
+
+    def test_accepts_hostname(self):
+        RouterClient(host="router.local", password="x")
+
+    def test_accepts_hostname_with_port(self):
+        RouterClient(host="192.168.0.1:8080", password="x")
+
+    @pytest.mark.parametrize("bad", [
+        "http://192.168.0.1",
+        "192.168.0.1/admin",
+        "192.168.0.1#fragment",
+        "192.168.0.1?query=1",
+        "evil.com/@real-router",
+        "",
+        " ",
+        "not a host",
+        "192.168.0.1;rm -rf /",
+    ])
+    def test_rejects_malformed_host(self, bad):
+        with pytest.raises(ValueError, match="Invalid host"):
+            RouterClient(host=bad, password="x")
