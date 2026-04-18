@@ -1,4 +1,6 @@
 import json
+import stat
+import sys
 import pytest
 from aliases import (
     load_aliases, save_aliases, set_alias, remove_alias, resolve, _normalize,
@@ -74,3 +76,18 @@ class TestResolve:
 
     def test_empty_aliases_returns_raw(self):
         assert resolve("AA:BB:CC:DD:EE:FF", {}) == "AA:BB:CC:DD:EE:FF"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file perms only")
+class TestFilePermissions:
+    def test_alias_file_is_user_only(self, tmp_path):
+        path = tmp_path / "sub" / "aliases.json"
+        save_aliases({"AA:BB:CC:DD:EE:FF": "iPhone"}, path)
+        mode = stat.S_IMODE(path.stat().st_mode)
+        assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
+
+    def test_alias_parent_dir_is_user_only(self, tmp_path):
+        path = tmp_path / "sub" / "aliases.json"
+        save_aliases({"AA:BB:CC:DD:EE:FF": "iPhone"}, path)
+        mode = stat.S_IMODE(path.parent.stat().st_mode)
+        assert mode == 0o700, f"expected 0o700, got {oct(mode)}"

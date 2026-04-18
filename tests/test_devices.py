@@ -40,4 +40,21 @@ class TestLoadDriver:
 
     def test_unknown_device_raises(self):
         with pytest.raises(ValueError, match="Unknown device"):
-            load_driver("nonexistent_device", host="x", password="test", username="admin")
+            load_driver("nonexistent_device", host="192.168.0.1", password="test", username="admin")
+
+
+class TestDeviceNameValidation:
+    @pytest.mark.parametrize("bad", [
+        "../../etc/passwd",
+        "../secrets",
+        "subdir/device",
+        "device/../other",
+        "device with space",
+        "device;rm -rf",
+        "",
+        "..",
+        "./sneaky",
+    ])
+    def test_rejects_path_traversal_and_unsafe_names(self, bad):
+        with pytest.raises(ValueError, match="Invalid device name|resolves outside"):
+            load_driver(bad, host="192.168.0.1", password="test", username="admin")

@@ -1,11 +1,27 @@
+import re
 from abc import ABC, abstractmethod
 from wifi_scanner import BAND_2G, BAND_5G
+
+
+# Accept a bare hostname or IP with an optional :port. Rejects anything
+# containing a scheme, path, query, or fragment so drivers can't be tricked
+# into sending credentials to an attacker-controlled URL via --host.
+_HOST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-]*(?::\d{1,5})?$")
+
+
+def _validate_host(host: str) -> str:
+    if not isinstance(host, str) or not _HOST_RE.fullmatch(host):
+        raise ValueError(
+            f"Invalid host {host!r}: expected a hostname or IP with optional :port, "
+            "no scheme/path/query."
+        )
+    return host
 
 
 class BaseDriver(ABC):
 
     def __init__(self, host: str, password: str, username: str = "admin"):
-        self.host = host
+        self.host = _validate_host(host)
         self.password = password
         self.username = username
 

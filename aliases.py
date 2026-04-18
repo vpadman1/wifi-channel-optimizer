@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-CONFIG_DIR = Path.home() / ".config" / "wifi-channel-optimizer"
+from config_paths import CONFIG_DIR, secure_dir, secure_file
+
 ALIASES_FILE = CONFIG_DIR / "aliases.json"
 
 
@@ -23,9 +24,14 @@ def load_aliases(path: Path = ALIASES_FILE) -> dict[str, str]:
 
 
 def save_aliases(aliases: dict[str, str], path: Path = ALIASES_FILE) -> None:
+    # Keep the config dir and alias file readable only by the current user —
+    # the alias file maps MAC addresses to human-readable device names and
+    # shouldn't be exposed to other accounts on a shared machine.
     path.parent.mkdir(parents=True, exist_ok=True)
+    secure_dir(path.parent)
     normalized = {_normalize(k): str(v) for k, v in aliases.items()}
     path.write_text(json.dumps(normalized, indent=2, sort_keys=True) + "\n")
+    secure_file(path)
 
 
 def set_alias(mac: str, name: str, path: Path = ALIASES_FILE) -> None:

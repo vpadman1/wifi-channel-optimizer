@@ -1,3 +1,4 @@
+import re
 import yaml
 from pathlib import Path
 
@@ -5,6 +6,27 @@ DEVICES_DIR = Path(__file__).parent
 DRIVER_MAP = {
     "tplink_oid": "drivers.tplink_oid.TplinkOidDriver",
 }
+
+# Device names become filesystem paths under devices/. Restricting to a
+# safe character set and rejecting a resolved path that escapes DEVICES_DIR
+# prevents --device values like "../../../etc/hostname" from loading
+# arbitrary YAML files off the filesystem.
+_DEVICE_NAME_RE = re.compile(r"^[A-Za-z0-9_\-.]+$")
+
+
+def _resolve_device_path(device_name: str) -> Path:
+    if not _DEVICE_NAME_RE.fullmatch(device_name) or ".." in device_name:
+        raise ValueError(
+            f"Invalid device name {device_name!r}: expected letters, digits, "
+            "'-', '_', or '.' (no path separators)."
+        )
+    candidate = (DEVICES_DIR / f"{device_name}.yaml").resolve()
+    devices_root = DEVICES_DIR.resolve()
+    try:
+        candidate.relative_to(devices_root)
+    except ValueError:
+        raise ValueError(f"Device name {device_name!r} resolves outside devices/.")
+    return candidate
 
 
 def list_devices() -> list[dict]:
@@ -18,7 +40,7 @@ def list_devices() -> list[dict]:
 
 
 def load_driver(device_name: str, host: str | None, password: str, username: str | None = None):
-    config_path = DEVICES_DIR / f"{device_name}.yaml"
+    config_path = _resolve_device_path(device_name)
     if not config_path.exists():
         raise ValueError(f"Unknown device: {device_name}. Available: {[d['_file'] for d in list_devices()]}")
     with open(config_path) as f:
