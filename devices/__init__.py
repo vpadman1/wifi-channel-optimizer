@@ -5,6 +5,7 @@ from pathlib import Path
 DEVICES_DIR = Path(__file__).parent
 DRIVER_MAP = {
     "tplink_oid": "drivers.tplink_oid.TplinkOidDriver",
+    "demo": "drivers.demo.DemoDriver",
 }
 
 # Device names become filesystem paths under devices/. Restricting to a

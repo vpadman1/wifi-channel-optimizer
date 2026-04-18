@@ -1,0 +1,6 @@
+name: "Demo — fake router data (for screenshots and trying the tool)"
+driver: demo
+default_host: demo
+default_username: demo
+compatible_models:
+  - "(no real hardware — runs against hardcoded fake data)"
